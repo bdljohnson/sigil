@@ -55,7 +55,6 @@ var sessionCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(sessionCmd)
-
-	sessionCmd.Flags().String("target", "", "specify the target depedning on the type")
-	sessionCmd.Flags().String("type", "instance-id", "specify target type: instance-id/private-dns/name-tag")
+	sessionCmd.Flags().String("target", "", "specify the target depedning on the type, for tags, a comma-seperated string like tagName:Value,tagName:Value")
+	sessionCmd.Flags().String("type", "instance-id", "specify target type: instance-id/private-dns/name-tag/tags")
 }

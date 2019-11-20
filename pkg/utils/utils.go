@@ -2,7 +2,7 @@ package utils
 
 import (
 	"fmt"
-
+	"strings"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials/stscreds"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -37,7 +37,7 @@ func GetInstance(sess *session.Session, targetType string, target string) (*ec2.
 		}).Error(err)
 		return nil, err
 	}
-	switch targetType {
+	switch targetType {	
 	case "instance-id":
 		instance, err := getFirstInstance(sess, &ec2.DescribeInstancesInput{
 			Filters: []*ec2.Filter{
@@ -63,7 +63,7 @@ func GetInstance(sess *session.Session, targetType string, target string) (*ec2.
 				},
 				{
 					Name:	aws.String("instance-state-name"),
-					Values: []*string{aws.String("running")}
+					Values: []*string{aws.String("running")},
 				},
 			},
 		})
@@ -75,17 +75,18 @@ func GetInstance(sess *session.Session, targetType string, target string) (*ec2.
 		}
 		return instance, err
 	case "name-tag":
+		filters := []*ec2.Filter{}
+		filters = append(filters, &ec2.Filter{
+				Name:   aws.String("tag:Name"),
+				Values: []*string{&target},
+			})
+		filters = append(filters, &ec2.Filter{
+			Name:	aws.String("instance-state-name"),
+			Values: []*string{aws.String("running")},
+		})
+
 		instance, err := getFirstInstance(sess, &ec2.DescribeInstancesInput{
-			Filters: []*ec2.Filter{
-				{
-					Name:   aws.String("tag:Name"),
-					Values: []*string{&target},
-				},
-				{
-					Name:	aws.String("instance-state-name"),
-					Values: []*string{aws.String("running")}
-				},
-			},
+			Filters: filters,
 		})
 		if err != nil {
 			return nil, err
@@ -94,7 +95,38 @@ func GetInstance(sess *session.Session, targetType string, target string) (*ec2.
 			return nil, fmt.Errorf("no instance with name tag: %s", target)
 		}
 		return instance, err
+	case "tags":
+
+		filters := []*ec2.Filter{}
+
+		filters = append(filters, &ec2.Filter{
+			Name:	aws.String("instance-state-name"),
+			Values: []*string{aws.String("running")},
+		})	
+
+		// Create tag filters
+		s := strings.Split(target, ",")
+		for _, str := range s {
+			tags := strings.Split(str, ":")
+			filters = append(filters, &ec2.Filter{
+				Name:	aws.String("tag:" + tags[0]),
+				Values: []*string{&tags[1]},
+			})
+		}
+
+		instance, err := getFirstInstance(sess, &ec2.DescribeInstancesInput{
+			Filters: filters,
+		})		
+
+		if err != nil {
+			return nil, err
+		}
+		if instance == nil {
+			return nil, fmt.Errorf("no instance with name tag: %s", target)
+		}
+		return instance, err
 	}
+
 	return nil, fmt.Errorf("Unsupported target type: %s", target)
 }
 
